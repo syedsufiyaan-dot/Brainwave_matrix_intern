@@ -1,0 +1,125 @@
+import re
+import tldextract
+from urllib.parse import urlparse
+from difflib import SequenceMatcher
+
+# ---------- CONFIGURABLE WHITELIST AND SUSPICIOUS TERMS ----------
+
+LEGITIMATE_DOMAINS = [
+    "google.com", "facebook.com", "microsoft.com", "apple.com", "amazon.com",
+    "paypal.com", "github.com", "linkedin.com", "twitter.com"
+]
+
+SUSPICIOUS_KEYWORDS = [
+    "login", "secure", "account", "update", "verify", "signin",
+    "auth", "webscr", "bank", "bonus", "reset", "free", "claim",
+    "activity", "security", "confirm", "submit", "support"
+]
+
+# ----------- FEATURE/HEURISTICS FUNCTIONS ------------
+
+def has_ip_address(url):
+    ip_pattern = r"http[s]?://(?:\d{1,3}\.){3}\d{1,3}"
+    return re.search(ip_pattern, url) is not None
+
+def has_suspicious_keywords(url):
+    return [kw for kw in SUSPICIOUS_KEYWORDS if kw in url.lower()]
+
+def has_excessive_special_chars(url):
+    return url.count('-') > 5 or url.count('@') > 1 or url.count('=') > 5
+
+def is_https(url):
+    return url.lower().startswith("https://")
+
+def subdomain_count(url):
+    extracted = tldextract.extract(url)
+    subdomains = extracted.subdomain.split('.')
+    return len([s for s in subdomains if s])
+
+def similar_to_legitimate(url):
+    extracted = tldextract.extract(url)
+    domain = extracted.domain + "." + extracted.suffix
+    best_ratio = 0
+    best_match = ""
+    for legit in LEGITIMATE_DOMAINS:
+        ratio = SequenceMatcher(None, domain, legit).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = legit
+    return (best_ratio, best_match)
+
+# ----------- MAIN ANALYSIS FUNCTION ------------
+
+def analyze_url(url):
+    result = {}
+    url = url.strip()
+    if not url:
+        result["error"] = "Empty URL provided."
+        return result
+
+    result["input"] = url
+    result["ip_found"] = has_ip_address(url)
+    result["suspicious_keywords"] = has_suspicious_keywords(url)
+    result["special_chars"] = has_excessive_special_chars(url)
+    result["uses_https"] = is_https(url)
+    result["length"] = len(url)
+    result["subdomain_count"] = subdomain_count(url)
+    sim_ratio, sim_domain = similar_to_legitimate(url)
+    result["similarity"] = (sim_ratio, sim_domain)
+
+    # Scoring (0-10)
+    score = 0
+    if result["ip_found"]: score += 3
+    if result["suspicious_keywords"]: score += 2
+    if not result["uses_https"]: score += 1
+    if result["special_chars"]: score += 1
+    if result["length"] > 80: score += 1
+    if result["subdomain_count"] > 2: score += 1
+    if sim_ratio > 0.8 and sim_domain not in url: score += 2
+    result["phishing_score"] = score
+
+    if score >= 6:
+        result["label"] = "⚠️ Likely PHISHING"
+    elif score >= 3:
+        result["label"] = "❗ Suspicious"
+    else:
+        result["label"] = "✅ Likely Safe"
+
+    return result
+
+# ----------- USER INTERFACE LOOP ------------
+
+if __name__ == "__main__":
+    print("=" * 44)
+    print("     ADVANCED PHISHING URL SCANNER (Python)")
+    print("=" * 44)
+    print("Type/paste a URL (or type 'exit' to quit) to scan it.")
+    print("--------------------------------------------------------")
+    while True:
+        url = input("URL: ").strip()
+        if url.lower() == "exit":
+            print("Exiting.")
+            break
+        result = analyze_url(url)
+        if "error" in result:
+            print("Error:", result["error"])
+            continue
+        print(f"\nResult: {result['label']}")
+        print("Phishing Score:", result["phishing_score"], " (max 10)")
+        print(f" * Uses HTTPS: {'Yes' if result['uses_https'] else 'No'}")
+        print(f" * Contains IP in URL: {'Yes' if result['ip_found'] else 'No'}")
+        print(f" * Subdomain count: {result['subdomain_count']}")
+        print(f" * URL length: {result['length']}")
+        if result["suspicious_keywords"]:
+            print(" * Suspicious terms:", ", ".join(result["suspicious_keywords"]))
+        if result["special_chars"]:
+            print(" * Excessive special characters")
+        sim_ratio, sim_domain = result["similarity"]
+        print(f" * Closest legit domain: {sim_domain} (similarity: {sim_ratio:.2f})")
+        print("-" * 42, "\n")
+
+# To run: pip install tldextract
+#         python this_script.py
+
+# This script uses only one non-builtin library (tldextract)
+# and no training/model files. It is easily customizable for enhancements.
