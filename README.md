@@ -1,127 +1,137 @@
-# Brainwave_matrix_intern
+# Improved Phishing URL Scanner
+
+A lightweight, heuristic-based phishing URL scanner written in Python. Use it as a CLI tool or import it as a module in other projects to get a quick, JSON-serializable assessment of whether a URL looks suspicious or likely to be a phishing attempt.
+
+---
+
+## Features
+
+- Robust URL parsing with normalization
+- Accurate IP detection using `ipaddress` (not just regex)
+- Domain/subdomain analysis using `tldextract`
+- Heuristics for suspicious keywords, excessive special characters, long URLs, and subdomain depth
+- Similarity check against a list of well-known legitimate domains (to detect typosquatting)
+- Tunable thresholds and scoring (0â€“10) with human-readable labels
+- JSON output for easy integration with other tools
+- CLI + batch (`--stdin`) support
+
+---
+
+## Quickstart
+
+### Requirements
+
+- Python 3.8+
+- `tldextract` (install with pip)
+
+```bash
 pip install tldextract
-import re
-import tldextract
-from urllib.parse import urlparse
-from difflib import SequenceMatcher
+```
 
-# ---------- CONFIGURABLE WHITELIST AND SUSPICIOUS TERMS ----------
+### Run as CLI
 
-LEGITIMATE_DOMAINS = [
-    "google.com", "facebook.com", "microsoft.com", "apple.com", "amazon.com",
-    "paypal.com", "github.com", "linkedin.com", "twitter.com"
-]
+Scan one or more URLs from the command line:
 
-SUSPICIOUS_KEYWORDS = [
-    "login", "secure", "account", "update", "verify", "signin",
-    "auth", "webscr", "bank", "bonus", "reset", "free", "claim",
-    "activity", "security", "confirm", "submit", "support"
-]
+```bash
+python improved_phish_scanner.py https://example.com http://192.0.2.1
+```
 
-# ----------- FEATURE/HEURISTICS FUNCTIONS ------------
+Scan URLs from stdin (one per line):
 
-def has_ip_address(url):
-    ip_pattern = r"http[s]?://(?:\d{1,3}\.){3}\d{1,3}"
-    return re.search(ip_pattern, url) is not None
+```bash
+cat urls.txt | python improved_phish_scanner.py --stdin
+```
 
-def has_suspicious_keywords(url):
-    return [kw for kw in SUSPICIOUS_KEYWORDS if kw in url.lower()]
+Each scanned URL prints a JSON object containing details and the final `phishing_score` and `label`.
 
-def has_excessive_special_chars(url):
-    return url.count('-') > 5 or url.count('@') > 1 or url.count('=') > 5
+### Use as a module
 
-def is_https(url):
-    return url.lower().startswith("https://")
+```python
+from improved_phish_scanner import analyze_url
 
-def subdomain_count(url):
-    extracted = tldextract.extract(url)
-    subdomains = extracted.subdomain.split('.')
-    return len([s for s in subdomains if s])
+result = analyze_url('http://account-google.com/login')
+print(result['label'], result['phishing_score'])
+```
 
-def similar_to_legitimate(url):
-    extracted = tldextract.extract(url)
-    domain = extracted.domain + "." + extracted.suffix
-    best_ratio = 0
-    best_match = ""
-    for legit in LEGITIMATE_DOMAINS:
-        ratio = SequenceMatcher(None, domain, legit).ratio()
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_match = legit
-    return (best_ratio, best_match)
+---
 
-# ----------- MAIN ANALYSIS FUNCTION ------------
+## What the scanner checks
 
-def analyze_url(url):
-    result = {}
-    url = url.strip()
-    if not url:
-        result["error"] = "Empty URL provided."
-        return result
+- **IP in host** â€” IPv4/IPv6 hosts are suspicious when used in place of domain names.
+- **Suspicious keywords** â€” Looks for words like `login`, `secure`, `verify`, `bank`, etc., inside domain, subdomain, path and query.
+- **Excessive special characters** â€” Flags long runs of `-`, `%`, `=` and multiple `@` in path/query.
+- **HTTPS** â€” Lack of HTTPS increases suspicion (but isn't a definitive signal).
+- **URL length** â€” Very long URLs are more suspicious.
+- **Subdomain depth** â€” Many nested subdomains can indicate obfuscation.
+- **Similarity to legitimate domains** â€” Detects typosquatting by measuring string similarity to a configured whitelist.
 
-    result["input"] = url
-    result["ip_found"] = has_ip_address(url)
-    result["suspicious_keywords"] = has_suspicious_keywords(url)
-    result["special_chars"] = has_excessive_special_chars(url)
-    result["uses_https"] = is_https(url)
-    result["length"] = len(url)
-    result["subdomain_count"] = subdomain_count(url)
-    sim_ratio, sim_domain = similar_to_legitimate(url)
-    result["similarity"] = (sim_ratio, sim_domain)
+The heuristics produce a score (0â€“10) and a label:
 
-    # Scoring (0-10)
-    score = 0
-    if result["ip_found"]: score += 3
-    if result["suspicious_keywords"]: score += 2
-    if not result["uses_https"]: score += 1
-    if result["special_chars"]: score += 1
-    if result["length"] > 80: score += 1
-    if result["subdomain_count"] > 2: score += 1
-    if sim_ratio > 0.8 and sim_domain not in url: score += 2
-    result["phishing_score"] = score
+- `âš ï¸ Likely PHISHING` (high confidence)
+- `â— Suspicious` (medium risk)
+- `âœ… Likely Safe` (low risk)
 
-    if score >= 6:
-        result["label"] = "⚠️ Likely PHISHING"
-    elif score >= 3:
-        result["label"] = "❗ Suspicious"
-    else:
-        result["label"] = "✅ Likely Safe"
+---
 
-    return result
+## Configuration / Tuning
 
-# ----------- USER INTERFACE LOOP ------------
+Open the script and adjust the following constants as needed for your environment:
 
-if __name__ == "__main__":
-    print("=" * 44)
-    print("     ADVANCED PHISHING URL SCANNER (Python)")
-    print("=" * 44)
-    print("Type/paste a URL (or type 'exit' to quit) to scan it.")
-    print("--------------------------------------------------------")
-    while True:
-        url = input("URL: ").strip()
-        if url.lower() == "exit":
-            print("Exiting.")
-            break
-        result = analyze_url(url)
-        if "error" in result:
-            print("Error:", result["error"])
-            continue
-        print(f"\nResult: {result['label']}")
-        print("Phishing Score:", result["phishing_score"], " (max 10)")
-        print(f" * Uses HTTPS: {'Yes' if result['uses_https'] else 'No'}")
-        print(f" * Contains IP in URL: {'Yes' if result['ip_found'] else 'No'}")
-        print(f" * Subdomain count: {result['subdomain_count']}")
-        print(f" * URL length: {result['length']}")
-        if result["suspicious_keywords"]:
-            print(" * Suspicious terms:", ", ".join(result["suspicious_keywords"]))
-        if result["special_chars"]:
-            print(" * Excessive special characters")
-        sim_ratio, sim_domain = result["similarity"]
-        print(f" * Closest legit domain: {sim_domain} (similarity: {sim_ratio:.2f})")
-        print("-" * 42, "\n")
+- `LEGITIMATE_DOMAINS` â€” list of brands/domains to compare against
+- `SUSPICIOUS_KEYWORDS` â€” terms to consider suspicious
+- `SIMILARITY_PENALTY_THRESHOLD` â€” similarity ratio that triggers a penalty (default `0.85`)
+- `PHISHING_SCORE_HIGH` / `PHISHING_SCORE_MED` â€” score thresholds for labels
 
-# To run: pip install tldextract
-#         python this_script.py
+You can also change scoring rules inside `analyze_url()` to weight features differently.
 
-# This script uses only one non-builtin library (tldextract)
-# and no training/model files. It is easily customizable for enhancements.
+---
+
+## Integration ideas
+
+- Integrate with a mail gateway or webhook to pre-check links in inbound messages
+- Batch-scan historical logs and produce reports (CSV/JSON)
+- Plug into VirusTotal / WHOIS for higher-confidence checks (requires API keys)
+- Combine with a lightweight ML model trained on labeled phishing/benign URLs for improved precision
+
+---
+
+## Testing
+
+Add unit tests (recommended tools: `pytest`) to validate heuristics and edge cases. Example tests to add:
+
+- URLs with IPv4/IPv6 hosts
+- URLs with and without schemes
+- Typosquatting examples
+- Very long path/query strings
+
+---
+
+## Known caveats
+
+- `tldextract` may fetch the public suffix list on first run. In air-gapped or offline environments, pre-cache or vendor the list.
+- Heuristic-based scanners produce false positives/negatives. For production use, consider enriching with external threat feeds or human-review workflows.
+
+---
+
+## Contributing
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/my-change`)
+3. Add tests and documentation
+4. Open a pull request with a description of your changes
+
+---
+
+## License & Attribution
+
+This project is provided as-is. Add a license file (e.g., MIT) to your repo if you want to grant explicit permissions.
+
+---
+
+## Contact
+
+If you want help tuning thresholds, adding unit tests, or converting output to CSV/web UI, open an issue or contact the author via the repo.
+
+---
+
+*Generated README for the improved phishing URL scanner â€” copy this into `README.md` in your GitHub repository.*
