@@ -1,0 +1,65 @@
+# 🔐 Password Strength Checker
+
+A tool designed to assess the **strength of passwords** entered by users.  
+It provides feedback based on important factors like **length, complexity, and uniqueness**, helping users create stronger and more secure passwords.
+
+---
+
+## 🚀 Features
+- ✅ Evaluates **password length** to ensure sufficient characters.  
+- ✅ Checks **complexity** by analyzing the presence of uppercase, lowercase, digits, and special symbols.  
+- ✅ Measures **uniqueness** by avoiding common dictionary words, repeated characters, or simple sequences.  
+- ✅ Provides a **strength rating** (Weak, Medium, Strong, Very Strong).  
+- ✅ Suggests **improvements** to make weak passwords stronger.  
+
+---
+
+## 📊 Evaluation Criteria
+
+### 1. **Length**
+- Passwords with more characters are generally stronger.  
+- Minimum recommendation: **8 characters**, ideally **12+ characters**.  
+
+### 2. **Complexity**
+- A strong password should include a mix of:
+  - ✅ Lowercase letters  
+  - ✅ Uppercase letters  
+  - ✅ Numbers  
+  - ✅ Special characters (e.g., `@, #, $, %`)  
+
+### 3. **Uniqueness**
+- Should not use **common passwords** like `password`, `123456`, or `qwerty`.  
+- Avoids **simple sequences** (e.g., `abcd`, `1111`).  
+- Avoids too many **repeated characters**.  
+
+---
+
+## 🏆 Password Strength Levels
+
+| Strength     | Description                                                                 |
+|--------------|-----------------------------------------------------------------------------|
+| **Weak**     | Too short, predictable, or contains only one character type.                |
+| **Medium**   | Decent length but lacks strong complexity or uniqueness.                    |
+| **Strong**   | Good length and includes multiple character types with some uniqueness.     |
+| **Very Strong** | Long, highly complex, unique, and resistant to common attacks.           |
+
+---
+
+## 💡 Suggestions for Creating Strong Passwords
+- Use **at least 12 characters**.  
+- Combine **uppercase, lowercase, numbers, and symbols**.  
+- Avoid using personal information (e.g., name, birthday, phone number).  
+- Don’t reuse old or common passwords.  
+- Consider using a **password manager** to store and generate secure passwords.  
+
+---
+
+## 📝 Future Enhancements
+- GUI or Web interface for interactive password checking.  
+- Bulk password analysis from files.  
+- Integration with **Have I Been Pwned API** to check if a password has been leaked.  
+
+---
+
+## 👨‍💻 Author
+Developed with ❤️ to promote better password practices and improve online security.
